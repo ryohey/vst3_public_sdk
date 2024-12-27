@@ -77,6 +77,8 @@
 #include <unordered_map>
 #include <vector>
 
+static const int kMIDIPacketListSize = 2048;
+
 namespace Steinberg {
 class VST3DynLibrary;
 
@@ -122,18 +124,22 @@ public:
 			// synthesize the packet list and call the MIDIOutputCallback
 			// iterate through the vector and get each item
 			std::vector<MIDIMessageInfoStruct>::iterator myIterator;
-			MIDIPacketList* pktlist = PacketList ();
+            Byte listBuffer[kMIDIPacketListSize];
+            MIDIPacketList* pktlist = (MIDIPacketList*)listBuffer;
+            MIDIPacket* pkt = MIDIPacketListInit (pktlist);
+
+            // When the same timestamp is specified in MIDIPacketListAdd, the event is added to the same packet, but the event may be broken, so the timestamp is shifted.
+            int timeStampOffset = 0;
 
 			for (myIterator = mMIDIMessageList.begin (); myIterator != mMIDIMessageList.end ();
 			     myIterator++)
 			{
 				MIDIMessageInfoStruct item = *myIterator;
 
-				MIDIPacket* pkt = MIDIPacketListInit (pktlist);
 				bool tooBig = false;
 				Byte data[3] = {item.status, item.data1, item.data2};
-				if ((pkt = MIDIPacketListAdd (pktlist, sizeof (mBuffersAllocated), pkt,
-				                              item.startFrame, 4, const_cast<Byte*> (data))) ==
+				if ((pkt = MIDIPacketListAdd (pktlist, kMIDIPacketListSize, pkt,
+				                              (timeStampOffset++), 4, const_cast<Byte*> (data))) ==
 				    NULL)
 					tooBig = true;
 
